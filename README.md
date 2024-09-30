@@ -509,7 +509,9 @@ void stopMotors() {
 ![image](https://github.com/user-attachments/assets/d5d7b11c-3bad-4e0b-81d1-a45e0713f09d)
 
 #### С использованием модуля в качестве пульта управления
-![image](https://github.com/user-attachments/assets/9923e928-2076-482b-9a54-a771a70fab4c)
+
+![image](https://github.com/user-attachments/assets/5c8a6e8e-fb8a-434e-be4a-b58c6f4843cf)
+
 
 
 
