@@ -88,7 +88,7 @@
 ![image](https://github.com/user-attachments/assets/6d7b290f-bde9-4136-92d5-5fb1faf66abe)
 
 
-### Подключение питания
+## Подключение питания
 
 USB Type-C, 5 В, рекомендуем от 500 мА.
 
