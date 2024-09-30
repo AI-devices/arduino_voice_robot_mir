@@ -1,6 +1,8 @@
 # Инструкция по использованию AI-модуля голосового управления роботом.
 
-**Краткое описание работы:** находясь в активном режиме, модуль прослушивает голосовые команды пользователя. Если система распознала команду из списка, она произносит её через внешний динамик и отправляет сигнал для управления роботом по нескольким интерфейсам.
+**Краткое описание работы:** находясь в активном режиме, модуль слушает голосовые команды пользователя. 
+
+Если модуль распознал команду из списка, он повторяет её через внешний динамик и отправляет сигнал для управления роботом.
 
 <!---## Содержание
 1. [Сборка корпуса робота](#1-Сборка-корпуса-робота)
@@ -23,7 +25,7 @@
 -->
 ## Описание AI-модуля
 
-Модуль представляет собой плату с перефирийным оборудованием и микроконтроллером, который использует нейросеть, для распознавания голосовых команд пользователя и управления роботом.
+Модуль представляет собой плату с микроконтроллером, который распознаёт голосовые команды пользователя с помощью нейросети и отправляет их роботу.
 
 <img src="https://github.com/user-attachments/assets/51bf3f42-8d42-47d4-8e31-3881663815e5" width=40%>
 
@@ -72,6 +74,18 @@
  
 
 Длина в байтах и само слово русскими символами двумя транзакциями (длина - цифра, слово - массив). 
+
+![image](https://github.com/user-attachments/assets/7d541578-d1e5-442f-9ab7-7ddbb7f815c7)
+
+
+## Bluetooth
+
+В этом случае модуль не нужно устанавливать непосредственно на вашего робота. Используйте его как выносной пульт.
+
+Пользователь говорит команды в модуль, который держит в руке, модуль распознаёт их и отправляет по Bluetooth на робота.
+В этом случае подключите блютус-модуль (например HM-10) к вашей плате. 
+
+![image](https://github.com/user-attachments/assets/6d7b290f-bde9-4136-92d5-5fb1faf66abe)
 
 
 ### Подключение питания
@@ -130,7 +144,7 @@ USB Type-C, 5 В, рекомендуем от 500 мА.
 
 ### Сборка корпуса робота
 
-Мы использовали четырехколесную платформу с обычными щеточными двигателями, управляемыми через драйвер L298N. 
+Мы использовали четырехколесную платформу с обычными щеточными двигателями, управляемыми через драйвер двигателей L298N. 
 Вы можете использовать AI-модуль для управления любыми устройствами на Ардуино - принцип работы и подключения не меняется. 
 
 #### Подготовка инструментов и деталей
@@ -204,6 +218,7 @@ USB Type-C, 5 В, рекомендуем от 500 мА.
    - Плата управления моторами L298N
    - AI-модуль голсового управления
    - Источник питания (9В батарейка или аккумулятор)
+   - Модуль bluetooth управления HM-10 (если делаете управление через Bluetooth)
    - Провода
 
 Из инструментов нам будет достаточно крестовой отвёртки соответствующего размера.
@@ -225,7 +240,7 @@ USB Type-C, 5 В, рекомендуем от 500 мА.
   > [!WARNING]
   > При подключении к драйверу источник питания должен быть выключен!
 
-#### Подключение голсового модуля к Arduino
+#### Подключение голсового модуля к Arduino (на примере I2C)
    Перед тем как подключить логическую часть к питанию, мы должны соединить голосовой модуль с Arduino для передачи команд.
    
    ![AI-Arduino](https://github.com/user-attachments/assets/32d397e0-d0d7-4eb1-a7b4-809e232b7213)
@@ -237,6 +252,14 @@ USB Type-C, 5 В, рекомендуем от 500 мА.
    На драйвере эти ходы обозначены как: IN1, IN2, IN3 и IN4.
 
    ![Arduino-L298N](https://github.com/user-attachments/assets/b3e9b5db-942b-4141-98c5-8d3e379b5a6b)
+
+#### Подключение bluetooth-модуля HM-10 к Arduino
+
+Если вы решили использовать модлуль распознавания не на работе, а в качестве выносного беспроводного пульта управления, вам нужно подключить bluetooth к плате Ардуино. В этом случае подключать модуль к роботу, как описано выше, не нужно. 
+Сам модуль уже оснащён всем необходимым для беспроводной отправки команд.
+
+
+![image](https://github.com/user-attachments/assets/7125c59e-ffcd-4f95-91fc-dedbfe1ed884)
 
 
    ### Написание скетча
@@ -260,124 +283,108 @@ USB Type-C, 5 В, рекомендуем от 500 мА.
    Возьмем для примера подключение через I2C, так как передача данных по нему быстрее, чем на UART и проще, чем на SPI.
    
    Чтобы Arduino смогла читать данные через I2C, нужно его подключить, а также прописать порты, через которые Arduino будет передавать сигналы моторчикам.
+   Также сразу добавим в программу взаимодействие с Bluetooth-модулем, если вы захотите использовать этот вариант.
 
    ```
-   #define ESP_SLAVE_ADDR 0x36
-   #include <Wire.h>
-   
-   const int in1 = 7; // Пин движения вперёд для колёс с правой стороны
-   const int in2 = 6; // Пин движения назад для колёс с правой стороны (+ШИМ)
-   const int in3 = 5; // Пин движения вперёд для колёс с левой стороны (+ШИМ)
-   const int in4 = 4; // Пин движения назад для колёс с левой стороны
-   
-   void setup() {
-     Wire.begin(ESP_SLAVE_ADDR);   // Устанавливаем адрес slave устройства I2C
-     Wire.onReceive(receiveEvent); // Устанавливаем обработчик для события получения данных
-     Serial.begin(9600);           // Настраиваем Serial для вывода логов
-   
-     // Инициализируем пины для управления двигателями как выходы
-     pinMode(in1, OUTPUT);
-     pinMode(in2, OUTPUT);
-     pinMode(in3, OUTPUT);
-     pinMode(in4, OUTPUT);
-   }
-   
-   void loop() {
-     delay(100);  // Пустой цикл
-   }
+#include <SoftwareSerial.h>
+
+const int in1 = 7;             // Пин движения вперёд для колёс с правой стороны
+const int in2 = 6;             // Пин движения назад для колёс с правой стороны (+ШИМ)
+const int in3 = 5;             // Пин движения вперёд для колёс с левой стороны (+ШИМ)
+const int in4 = 4;             // Пин движения назад для колёс с левой стороны
+const int ble_rx = 3;          // Bluetooth module RX pin
+const int ble_tx = 2;          // Bluetooth module TD pin
+const int motion_delay = 550;  // Engine running time
+
+SoftwareSerial mySerial(ble_tx, ble_rx);
+
+void setup() {
+  // Настройка UART
+  Serial.begin(9600);  // Настраиваем Serial для вывода логов
+  mySerial.begin(9600);
+
+  // Инициализируем пины для управления двигателями как выходы
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+}
    ```
 
   Теперь мы должны прописать процесс считывания информации и распознавания команд.
 
    ```
-   void receiveEvent(int howMany) {
-     if (howMany <= 0) return;  // Проверка, есть ли данные для чтения
-   
-     String command = ""; // Объявление переменной для записи команды
-   
-     // Считываем все пришедшие символы в переменную command
-     while (Wire.available() > 0) { 
-       char c = Wire.read();
-       command += c;  
-     }
-     
-     // Анализируем команду и выполняем соответствующие действия
-     if (command.indexOf("вперед") != -1) {
-       moveForward();
-     } else if (command.indexOf("назад") != -1) {
-       moveBack();
-     } else if (command.indexOf("старт")!= -1) {
-       moveStart();
-     }else if (command.indexOf("стоп") != -1) {
-       stopMotors();
-     } else if (command.indexOf("вправо") != -1) {
-       moveRight();
-     } else if (command.indexOf("влево") != -1) {
-       moveLeft();
-     }
-   }
+void loop() {
+  if (mySerial.available()) {
+    String command = "";
+    command = mySerial.readString();
+    Serial.println("DATA RECEIVED:");
+    Serial.println(command);
+
+    if (command.indexOf("вперед") != -1) {
+      moveForward();
+    } else if (command.indexOf("назад") != -1) {
+      moveBack();
+    } else if (command.indexOf("вправо") != -1) {
+      moveRight();
+    } else if (command.indexOf("влево") != -1) {
+      moveLeft();
+    }
+  }
+}
    ```
 
   Остаётся прописать сами команды, а именно какие моторы и в каком направлении нам нужно активировать при той или иной команде.
   В данном скетче мы пропишем самые основные команды: вперёд, назад, влево, вправо и стоп.
-  Также добавим команду "старт", которая позволяет роботу ехать вперёд до тех пор, пока не будет сказана команда "стоп".
   
    ```
    // Движение вперед
-   void moveForward() {
-     digitalWrite(in1, HIGH);
-     digitalWrite(in2, LOW);
-     digitalWrite(in3, HIGH);
-     digitalWrite(in4, LOW);
-     delay(300000);
-     stopMotors();
-   }
-   
-   // Движение без остановки
-   void moveStart() {
-     digitalWrite(in1, HIGH);
-     digitalWrite(in2, LOW);
-     digitalWrite(in3, HIGH);
-     digitalWrite(in4, LOW);
-   }
-   
-   // Движение назад
-   void moveBack() {
-     digitalWrite(in1, LOW);
-     digitalWrite(in2, HIGH);
-     digitalWrite(in3, LOW);
-     digitalWrite(in4, HIGH);
-     delay(300000);
-     stopMotors();
-   }
-   
-   // Поворот вправо
-   void moveRight() {
-     digitalWrite(in1, LOW);
-     digitalWrite(in2, HIGH);
-     digitalWrite(in3, HIGH);
-     digitalWrite(in4, LOW);
-     delay(150000);
-     stopMotors();
-   }
-   
-   // Поворот влево
-   void moveLeft() {
-     digitalWrite(in1, HIGH);
-     digitalWrite(in2, LOW);
-     digitalWrite(in3, LOW);
-     digitalWrite(in4, HIGH);
-     delay(150000);
-     stopMotors();
-   }
-   
-   // Остановка двигателей
-   void stopMotors() {
-     digitalWrite(in1, LOW);
-     digitalWrite(in2, LOW);
-     digitalWrite(in3, LOW);
-     digitalWrite(in4, LOW);
-   }
+void moveForward() {
+  digitalWrite(in1, HIGH);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, HIGH);
+  digitalWrite(in4, LOW);
+  delay(motion_delay);
+  stopMotors();
+}
+
+// Движение назад
+void moveBack() {
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, HIGH);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
+  delay(motion_delay);
+  stopMotors();
+}
+
+// Поворот вправо
+void moveRight() {
+  digitalWrite(in1, HIGH);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
+  delay(motion_delay);
+  stopMotors();
+}
+
+// Поворот влево
+void moveLeft() {
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, HIGH);
+  digitalWrite(in3, HIGH);
+  digitalWrite(in4, LOW);
+  delay(motion_delay);
+  stopMotors();
+}
+
+// Остановка двигателей
+void stopMotors() {
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
+}
    ```
 
    >[!TIP]
@@ -389,112 +396,96 @@ USB Type-C, 5 В, рекомендуем от 500 мА.
    В результате мы получили скетч, который обрабатывает запросы с голосового модуля через I2C и подаёт сигналы действий на моторчики.
 
    ```
-   #define ESP_SLAVE_ADDR 0x36
-   #include <Wire.h>
-   
-   const int in1 = 7; // Пин движения вперёд для колёс с правой стороны
-   const int in2 = 6; // Пин движения назад для колёс с правой стороны (+ШИМ)
-   const int in3 = 5; // Пин движения вперёд для колёс с левой стороны (+ШИМ)
-   const int in4 = 4; // Пин движения назад для колёс с левой стороны
-   
-   void setup() {
-     Wire.begin(ESP_SLAVE_ADDR);   // Устанавливаем адрес slave устройства I2C
-     Wire.onReceive(receiveEvent); // Устанавливаем обработчик для события получения данных
-     Serial.begin(9600);           // Настраиваем Serial для вывода логов
-   
-     // Инициализируем пины для управления двигателями как выходы
-     pinMode(in1, OUTPUT);
-     pinMode(in2, OUTPUT);
-     pinMode(in3, OUTPUT);
-     pinMode(in4, OUTPUT);
-   }
-   
-   void loop() {
-     delay(100);  // Пустой цикл
-   }
-   
-   void receiveEvent(int howMany) {
-     if (howMany <= 0) return;  // Проверка, есть ли данные для чтения
-   
-     String command = ""; // Объявление переменной для записи команды
-   
-     // Считываем все пришедшие символы в переменную command
-     while (Wire.available() > 0) { 
-       char c = Wire.read();
-       command += c;  
-     }
-     
-     // Анализируем команду и выполняем соответствующие действия
-     if (command.indexOf("вперед") != -1) {
-       moveForward();
-     } else if (command.indexOf("назад") != -1) {
-       moveBack();
-     } else if (command.indexOf("старт")!= -1) {
-       moveStart();
-     }else if (command.indexOf("стоп") != -1) {
-       stopMotors();
-     } else if (command.indexOf("вправо") != -1) {
-       moveRight();
-     } else if (command.indexOf("влево") != -1) {
-       moveLeft();
-     }
-   }
-   
-   // Движение вперед
-   void moveForward() {
-     digitalWrite(in1, HIGH);
-     digitalWrite(in2, LOW);
-     digitalWrite(in3, HIGH);
-     digitalWrite(in4, LOW);
-     delay(300000);
-     stopMotors();
-   }
-   
-   // Движение без остановки
-   void moveStart() {
-     digitalWrite(in1, HIGH);
-     digitalWrite(in2, LOW);
-     digitalWrite(in3, HIGH);
-     digitalWrite(in4, LOW);
-   }
-   
-   // Движение назад
-   void moveBack() {
-     digitalWrite(in1, LOW);
-     digitalWrite(in2, HIGH);
-     digitalWrite(in3, LOW);
-     digitalWrite(in4, HIGH);
-     delay(300000);
-     stopMotors();
-   }
-   
-   // Поворот вправо
-   void moveRight() {
-     digitalWrite(in1, HIGH);
-     digitalWrite(in2, LOW);
-     digitalWrite(in3, LOW);
-     digitalWrite(in4, HIGH);
-     delay(150000);
-     stopMotors();
-   }
-   
-   // Поворот влево
-   void moveLeft() {
-     digitalWrite(in1, LOW);
-     digitalWrite(in2, HIGH);
-     digitalWrite(in3, HIGH);
-     digitalWrite(in4, LOW);
-     delay(150000);
-     stopMotors();
-   }
-   
-   // Остановка двигателей
-   void stopMotors() {
-     digitalWrite(in1, LOW);
-     digitalWrite(in2, LOW);
-     digitalWrite(in3, LOW);
-     digitalWrite(in4, LOW);
-   }
+#include <SoftwareSerial.h>
+
+const int in1 = 7;             // Пин движения вперёд для колёс с правой стороны
+const int in2 = 6;             // Пин движения назад для колёс с правой стороны (+ШИМ)
+const int in3 = 5;             // Пин движения вперёд для колёс с левой стороны (+ШИМ)
+const int in4 = 4;             // Пин движения назад для колёс с левой стороны
+const int ble_rx = 3;          // Bluetooth module RX pin
+const int ble_tx = 2;          // Bluetooth module TD pin
+const int motion_delay = 550;  // Engine running time
+
+SoftwareSerial mySerial(ble_tx, ble_rx);
+
+void setup() {
+  // Настройка UART
+  Serial.begin(9600);  // Настраиваем Serial для вывода логов
+  mySerial.begin(9600);
+
+  // Инициализируем пины для управления двигателями как выходы
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+}
+
+void loop() {
+  if (mySerial.available()) {
+    String command = "";
+    command = mySerial.readString();
+    Serial.println("DATA RECEIVED:");
+    Serial.println(command);
+
+    if (command.indexOf("forward") != -1) {
+      moveForward();
+    } else if (command.indexOf("backward") != -1) {
+      moveBack();
+    } else if (command.indexOf("right") != -1) {
+      moveRight();
+    } else if (command.indexOf("left") != -1) {
+      moveLeft();
+    }
+  }
+}
+
+// Движение вперед
+void moveForward() {
+  digitalWrite(in1, HIGH);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, HIGH);
+  digitalWrite(in4, LOW);
+  delay(motion_delay);
+  stopMotors();
+}
+
+// Движение назад
+void moveBack() {
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, HIGH);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
+  delay(motion_delay);
+  stopMotors();
+}
+
+// Поворот вправо
+void moveRight() {
+  digitalWrite(in1, HIGH);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
+  delay(motion_delay);
+  stopMotors();
+}
+
+// Поворот влево
+void moveLeft() {
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, HIGH);
+  digitalWrite(in3, HIGH);
+  digitalWrite(in4, LOW);
+  delay(motion_delay);
+  stopMotors();
+}
+
+// Остановка двигателей
+void stopMotors() {
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
+}
    ```
   
 ####  Перенос кода на плату Arduino
@@ -511,4 +502,14 @@ USB Type-C, 5 В, рекомендуем от 500 мА.
 
 В результате вы получаете робота, который выполняет ваши голосовые команды. 
 Не бойтесь экспериментировать с изменением скетча - скорость движения, угол поворота и так далее - зависят от многих факторов: насколько заряжены батареи, на каком покрытии перемещается робот. 
+
+### Итоговый вид робота
+
+#### С установкой модуля непосредственно на роботе
+![image](https://github.com/user-attachments/assets/d5d7b11c-3bad-4e0b-81d1-a45e0713f09d)
+
+#### С использованием модуля в качестве пульта управления
+![image](https://github.com/user-attachments/assets/9923e928-2076-482b-9a54-a771a70fab4c)
+
+
 
